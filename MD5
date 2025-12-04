@@ -1,0 +1,17 @@
+acbd414540c04bd30c21e0b15cafdbdf *DESCRIPTION
+e6b3c1c6ffcc7700e91b0109e7aea4a1 *LICENSE
+532bf9008470f41227e190690a5fc3e9 *NAMESPACE
+de1a13352becf2ba935e513f98c08555 *R/dataset.R
+1517de2a58972677a6159889e1f3a6ae *R/diagnostic_accuracy.R
+7af1a5ade4f23c38d10b517d44434bf8 *R/linear_regression.R
+89615b0a66c310cc9fa3f4cd7d473151 *R/logistic_regression.R
+bec3914b3a00e228b47b987ae9a890e8 *R/normality.R
+92836ba9f93e9bc57056e928a0eb0162 *R/sum_stat.R
+4c33f3358d05d8f2146e8c559fc6d938 *R/sum_stat_p.R
+549e143c4c43fac7ecdad36284e3acc0 *man/diag_accuracy.Rd
+7c0448007a609d90727a8f4d81425da5 *man/linreg.Rd
+b7b93b6de6bf7df14bf468b95fc726d8 *man/logreg.Rd
+1d7126a55ea7fc3709a49b7a84b3798f *man/medical_data.Rd
+8637708800defa2e40c89e214750e0b7 *man/norm_sum.Rd
+0dd71f56e38064da8e93ff773f339cc1 *man/sum_stat.Rd
+7b3e19bc9dad77d945baea550df96892 *man/sum_stat_p.Rd
