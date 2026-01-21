@@ -19,11 +19,11 @@
 #' @export
 #'
 #' @examples
-#' norm_sum(iris)
-#' @name norm_sum
+#' sum_norm(iris)
+#' @name sum_norm
 utils::globalVariables(c("Variable", "W", "p-value", "Distribution"))
 
-norm_sum <- function(data, sample_size = 5000) {
+sum_norm <- function(data, sample_size = 5000) {
 
   # Select only numeric variables
   num_vars <- data[sapply(data, is.numeric)]

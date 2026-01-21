@@ -1,61 +1,46 @@
-#' Linear Regression Summary Table
+#' Linear Regression Table with Univariable and Multivariable Analysis
 #'
-#' This function performs univariate and multivariate linear regression analyses
-#' for the specified predictors and outcome variable, returning a summary table
-#' with characteristics, regression coefficients (\eqn{\beta}) with 95\% CI, and p-values.
-#' Numeric variables are summarized as mean (SD); categorical variables as n (\%).
-#' Multivariate model R^2 and adjusted R^2 are included in the table footer.
+#' Fits univariable and multivariable linear regression models for a continuous outcome,
+#' summarizing beta coefficients, 95% confidence intervals, and p-values.
+#' Factor predictors include reference levels in the table. Returns a formatted `flextable`
+#' and optionally provides an automatic textual interpretation of results.
 #'
-#' @param data A data frame or tibble containing the variables.
-#' @param outcome The name of the outcome variable (numeric) as a string.
-#' @param predictors A character vector of predictor variable names.
+#' @param data A data frame containing the outcome and predictor variables.
+#' @param outcome Name of the continuous outcome variable (character).
+#' @param predictors Character vector of predictor variable names.
+#' @param report Logical; if TRUE, prints an automatic textual interpretation of multivariable results (default: TRUE).
 #'
-#' @return A `flextable` object summarizing univariate and multivariate linear regression results.
-#' @export linreg
+#' @importFrom stats lm as.formula predict binomial glm confint
+#' @importFrom broom tidy
+#' @importFrom flextable flextable autofit bold add_footer_lines
+#' @return
+#' If `report = FALSE`, returns a `flextable` summarizing univariable and multivariable beta coefficients, 95% CI, and p-values.
+#' If `report = TRUE`, returns a list with `table` (the flextable) and `interpretation` (textual summary of multivariable results).
 #'
+#' @export
+#'
+#' @import dplyr
+#' @import tibble
 #' @import broom
 #' @import flextable
-#' @import tidyr
-#' @import dplyr
 #'
 #' @examples
-#' # Example using built-in iris dataset
-#' linreg(iris, outcome = "Sepal.Length",
-#'        predictors = c("Sepal.Width", "Petal.Length", "Species"))
-#' @name linreg
-utils::globalVariables(c(
-  "Predictor", "Level", "Characteristics",
-  "Univariate beta (95% CI)", "Univariate p",
-  "Multivariate beta (95% CI)", "Multivariate p",
-  "pct", "term", "estimate", "conf.low", "conf.high",
-  "p.value"
-))
-linreg <- function(data, outcome, predictors) {
+#' # Apply linear regression on iris dataset
+#' linreg(
+#'   data = iris,
+#'   outcome = "Sepal.Length",
+#'   predictors = c("Sepal.Width", "Petal.Length", "Species"),
+#'   report = TRUE
+#' )
+linreg <- function(data, outcome, predictors, report = TRUE) {
   data <- as_tibble(data)
 
-  #-------------------- Helper Functions --------------------#
-  summary_numeric <- function(var) {
-    tibble(
-      Predictor = var,
-      Level = NA,
-      Characteristics = paste0(round(mean(data[[var]], na.rm = TRUE), 2),
-                               " (", round(sd(data[[var]], na.rm = TRUE), 2), ")")
-    )
+  # Format p-values
+  format_pval <- function(p) {
+    ifelse(p < 0.001, "<0.001", sprintf("%.2f", p))
   }
 
-  summary_categorical <- function(var) {
-    tbl <- table(data[[var]])
-    pct <- prop.table(tbl) * 100
-    levs <- names(tbl)
-    tibble(
-      Predictor = var,
-      Level = levs,
-      Characteristics = paste0(tbl, " (", round(pct, 1), "%)",
-                               ifelse(seq_along(tbl) == 1, " [ref]", ""))
-    )
-  }
-
-  #-------------------- Univariate --------------------#
+  #-------------------- Univariable --------------------#
   uni_list <- list()
   for (var in predictors) {
     model_uni <- lm(as.formula(paste(outcome, "~", var)), data = data)
@@ -64,27 +49,35 @@ linreg <- function(data, outcome, predictors) {
     if (is.numeric(data[[var]])) {
       uni_list[[var]] <- tibble(
         Predictor = var,
-        Level = NA,
-        `Univariate beta (95% CI)` = paste0(round(t$estimate[-1],2),
-                                            " (", round(t$conf.low[-1],2),
-                                            ", ", round(t$conf.high[-1],2), ")"),
-        `Univariate p` = format.pval(t$p.value[-1], digits=3, eps=0.001)
+        `Univariable beta (95% CI)` = paste0(round(t$estimate[-1],2),
+                                             " (", round(t$conf.low[-1],2),
+                                             ", ", round(t$conf.high[-1],2), ")"),
+        `Univariable p` = format_pval(t$p.value[-1])
       )
     } else {
-      levs <- t$term[-1]
-      uni_list[[var]] <- tibble(
-        Predictor = var,
-        Level = gsub(var, "", levs),
-        `Univariate beta (95% CI)` = paste0(round(t$estimate[-1],2),
-                                            " (", round(t$conf.low[-1],2),
-                                            ", ", round(t$conf.high[-1],2), ")"),
-        `Univariate p` = format.pval(t$p.value[-1], digits=3, eps=0.001)
+      levels <- levels(as.factor(data[[var]]))
+      ref <- levels[1]
+      ref_row <- tibble(
+        Predictor = ref,
+        `Univariable beta (95% CI)` = "Reference",
+        `Univariable p` = ""
       )
+
+      other_rows <- t %>%
+        filter(row_number() != 1) %>%
+        mutate(Predictor = gsub(var, "", term),
+               `Univariable beta (95% CI)` = paste0(round(estimate,2),
+                                                    " (", round(conf.low,2),
+                                                    ", ", round(conf.high,2), ")"),
+               `Univariable p` = format_pval(p.value)) %>%
+        select(Predictor, `Univariable beta (95% CI)`, `Univariable p`)
+
+      uni_list[[var]] <- bind_rows(ref_row, other_rows)
     }
   }
   uni_results <- bind_rows(uni_list)
 
-  #-------------------- Multivariate --------------------#
+  #-------------------- Multivariable --------------------#
   model_multi <- lm(as.formula(paste(outcome, "~", paste(predictors, collapse=" + "))),
                     data = data)
   t_multi <- broom::tidy(model_multi, conf.int = TRUE)
@@ -95,62 +88,93 @@ linreg <- function(data, outcome, predictors) {
       row <- t_multi %>% filter(term == var)
       multi_list[[var]] <- tibble(
         Predictor = var,
-        Level = NA,
-        `Multivariate beta (95% CI)` = paste0(round(row$estimate,2),
-                                              " (", round(row$conf.low,2),
-                                              ", ", round(row$conf.high,2), ")"),
-        `Multivariate p` = format.pval(row$p.value, digits=3, eps=0.001)
+        `Multivariable beta (95% CI)` = paste0(round(row$estimate,2),
+                                               " (", round(row$conf.low,2),
+                                               ", ", round(row$conf.high,2), ")"),
+        `Multivariable p` = format_pval(row$p.value)
       )
     } else {
-      rows <- t_multi %>% filter(grepl(var, term))
-      levels <- gsub(var, "", rows$term)
-      multi_list[[var]] <- tibble(
-        Predictor = var,
-        Level = levels,
-        `Multivariate beta (95% CI)` = paste0(round(rows$estimate,2),
-                                              " (", round(rows$conf.low,2),
-                                              ", ", round(rows$conf.high,2), ")"),
-        `Multivariate p` = format.pval(rows$p.value, digits=3, eps=0.001)
+      levels <- levels(as.factor(data[[var]]))
+      ref <- levels[1]
+      ref_row <- tibble(
+        Predictor = ref,
+        `Multivariable beta (95% CI)` = "Reference",
+        `Multivariable p` = ""
       )
+
+      other_rows <- t_multi %>%
+        filter(grepl(var, term)) %>%
+        mutate(Predictor = gsub(var, "", term),
+               `Multivariable beta (95% CI)` = paste0(round(estimate,2),
+                                                      " (", round(conf.low,2),
+                                                      ", ", round(conf.high,2), ")"),
+               `Multivariable p` = format_pval(p.value)) %>%
+        select(Predictor, `Multivariable beta (95% CI)`, `Multivariable p`)
+
+      multi_list[[var]] <- bind_rows(ref_row, other_rows)
     }
   }
   multi_results <- bind_rows(multi_list)
 
-  #-------------------- Summary Table --------------------#
-  summary_list <- list()
-  for (var in predictors) {
-    if (is.numeric(data[[var]])) {
-      summary_list[[var]] <- summary_numeric(var)
-    } else {
-      summary_list[[var]] <- summary_categorical(var)
-    }
-  }
-  summary_tbl <- bind_rows(summary_list)
+  #-------------------- Merge and final table --------------------#
+  final_tbl <- uni_results %>%
+    left_join(multi_results, by = "Predictor")
 
-  # Merge results
-  final_tbl <- summary_tbl %>%
-    left_join(uni_results, by=c("Predictor","Level")) %>%
-    left_join(multi_results, by=c("Predictor","Level")) %>%
-    dplyr::select(Predictor, Level, Characteristics,
-                  `Univariate beta (95% CI)`,`Univariate p`,
-                  `Multivariate beta (95% CI)`,`Multivariate p`)
+  # Rename columns with two lines
+  colnames(final_tbl) <- c(
+    "Predictor",
+    "Univariable\nBeta (95% CI)",
+    "Univariable\np",
+    "Multivariable\nBeta (95% CI)",
+    "Multivariable\np"
+  )
 
-  #-------------------- Remove repeated Predictor names --------------------#
-  final_tbl <- final_tbl %>%
-    group_by(Predictor) %>%
-    mutate(Predictor = ifelse(row_number() == 1, Predictor, "")) %>%
-    ungroup()
-
-  # Footer text with ASCII-only characters
+  # Footer text
   footer_txt <- paste0(
-    "Characteristics: Mean (SD) for numeric; n (%) for categorical. ",
-    "Multivariate model: R^2 = ", round(summary(model_multi)$r.squared,3),
+    "Multivariable model: R^2 = ", round(summary(model_multi)$r.squared,3),
     "; Adjusted R^2 = ", round(summary(model_multi)$adj.r.squared,3)
   )
 
-  flextable::flextable(final_tbl) %>%
+  ft <- flextable::flextable(final_tbl) %>%
     flextable::autofit() %>%
     flextable::bold(part="header") %>%
     flextable::add_footer_lines(footer_txt)
+
+  #-------------------- Automatic Interpretation --------------------#
+  if (report) {
+    tidy_res <- tidy(model_multi, conf.int = TRUE) %>%
+      filter(term != "(Intercept)")
+
+    sig <- tidy_res %>% filter(p.value < 0.05)
+    nonsig <- tidy_res %>% filter(p.value >= 0.05)
+
+    sig_text <- if (nrow(sig) > 0) {
+      paste(apply(sig, 1, function(x) {
+        direction <- ifelse(as.numeric(x["estimate"]) > 0, "increase", "decrease")
+        stat_sig <- ifelse(as.numeric(x["p.value"]) < 0.05, "statistically significant ", "")
+        paste0(
+          "Each one-unit increase in ", x["term"], " was associated with a ",
+          stat_sig, direction, " of ", abs(round(as.numeric(x["estimate"]),2)),
+          " units in ", outcome, " (95% CI ", round(as.numeric(x["conf.low"]),2),
+          " to ", round(as.numeric(x["conf.high"]),2),
+          ", p = ", format_pval(as.numeric(x["p.value"])), ")."
+        )
+      }), collapse = " ")
+    } else { "No predictors were significant." }
+
+    nonsig_text <- if (nrow(nonsig) > 0) {
+      paste(paste(nonsig$term, collapse = ", "), "were non-significant predictors.")
+    } else { "" }
+
+    interpretation <- paste0(
+      "The multivariable model explained ", round(summary(model_multi)$r.squared*100,1), "% of variance in ", outcome,
+      " (Adjusted R^2 = ", round(summary(model_multi)$adj.r.squared,3), "). ",
+      sig_text, " ", nonsig_text
+    )
+
+    return(list(table = ft, interpretation = interpretation))
+  } else {
+    return(ft)
+  }
 }
 

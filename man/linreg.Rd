@@ -2,26 +2,35 @@
 % Please edit documentation in R/linear_regression.R
 \name{linreg}
 \alias{linreg}
-\title{Linear Regression Summary Table}
+\title{Linear Regression Table with Univariable and Multivariable Analysis}
+\usage{
+linreg(data, outcome, predictors, report = TRUE)
+}
 \arguments{
-\item{data}{A data frame or tibble containing the variables.}
+\item{data}{A data frame containing the outcome and predictor variables.}
 
-\item{outcome}{The name of the outcome variable (numeric) as a string.}
+\item{outcome}{Name of the continuous outcome variable (character).}
 
-\item{predictors}{A character vector of predictor variable names.}
+\item{predictors}{Character vector of predictor variable names.}
+
+\item{report}{Logical; if TRUE, prints an automatic textual interpretation of multivariable results (default: TRUE).}
 }
 \value{
-A \code{flextable} object summarizing univariate and multivariate linear regression results.
+If \code{report = FALSE}, returns a \code{flextable} summarizing univariable and multivariable beta coefficients, 95\% CI, and p-values.
+If \code{report = TRUE}, returns a list with \code{table} (the flextable) and \code{interpretation} (textual summary of multivariable results).
 }
 \description{
-This function performs univariate and multivariate linear regression analyses
-for the specified predictors and outcome variable, returning a summary table
-with characteristics, regression coefficients (\eqn{\beta}) with 95\\% CI, and p-values.
-Numeric variables are summarized as mean (SD); categorical variables as n (\\%).
-Multivariate model R^2 and adjusted R^2 are included in the table footer.
+Fits univariable and multivariable linear regression models for a continuous outcome,
+summarizing beta coefficients, 95\% confidence intervals, and p-values.
+Factor predictors include reference levels in the table. Returns a formatted \code{flextable}
+and optionally provides an automatic textual interpretation of results.
 }
 \examples{
-# Example using built-in iris dataset
-linreg(iris, outcome = "Sepal.Length",
-       predictors = c("Sepal.Width", "Petal.Length", "Species"))
+# Apply linear regression on iris dataset
+linreg(
+  data = iris,
+  outcome = "Sepal.Length",
+  predictors = c("Sepal.Width", "Petal.Length", "Species"),
+  report = TRUE
+)
 }

@@ -2,25 +2,26 @@
 % Please edit documentation in R/logistic_regression.R
 \name{logreg}
 \alias{logreg}
-\title{Logistic Regression Summary Table}
+\title{Binary Logistic Regression Table with Univariable and Multivariable Analysis}
 \arguments{
 \item{data}{A data frame containing the outcome and predictor variables.}
 
-\item{outcome}{A character string (factor)specifying the binary outcome variable.}
+\item{outcome}{Name of the binary outcome variable (character).}
 
-\item{predictors}{A character vector (factor) of predictor variables to include in the regression.}
+\item{predictors}{Character vector of predictor variable names.}
+
+\item{report}{Logical; if TRUE, prints an automatic textual interpretation of multivariable results (default: FALSE).}
 }
 \value{
-A flextable displaying univariate and multivariate odds ratios (95\% CI)
-and p-values for each predictor. Reference levels for categorical variables are labeled "Reference".
+A \code{flextable} summarizing univariable and multivariable logistic regression results, including ORs, 95\% CI, and p-values.
 }
 \description{
-Performs logistic regression for a binary outcome and a set of predictor variables.
-Computes both univariate and multivariate odds ratios (ORs) with 95\% confidence intervals
-and p-values. Categorical variables automatically include a reference level in the output.
-Results are returned as a formatted flextable.
+Fits univariable and multivariable logistic regression models for a binary outcome,
+summarizing odds ratios (ORs), 95\% confidence intervals, and p-values.
+Factor predictors include reference levels in the table. Returns a formatted \code{flextable}
+and optionally provides an automatic textual interpretation of results.
 }
 \examples{
 logreg(data=medical_data(), outcome="case" ,
-   predictors= c("age" ,  "parity" ,    "induced" ))
+   predictors= c("age" ,  "parity" ,    "induced" ), report = TRUE)
 }

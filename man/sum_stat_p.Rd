@@ -2,48 +2,51 @@
 % Please edit documentation in R/sum_stat_p.R
 \name{sum_stat_p}
 \alias{sum_stat_p}
-\title{Create a Summary Table With P-Values for Group Comparisons}
+\title{Summarize Continuous and Categorical Variables with Grouping and P-Values}
+\usage{
+sum_stat_p(data, by, statistic = "mean_sd", test_type = "auto", paired = FALSE)
+}
 \arguments{
-\item{data}{A data frame or tibble containing variables to summarise.}
+\item{data}{A \code{data.frame} or \code{tibble} containing the variables to summarize.}
 
-\item{by}{A string specifying the grouping variable name. Must be a column in \code{data}.}
+\item{by}{A string specifying the grouping variable for stratified summaries.}
 
-\item{statistic}{A string specifying summary style for continuous variables:
-\itemize{
-\item \code{"mean_sd"}: Mean (SD)
-\item \code{"med_iqr"}: Median (IQR)
-}}
+\item{statistic}{Character string indicating how to summarize continuous variables:
+\code{"mean_sd"} (default) or \code{"med_iqr"}.}
 
-\item{test_type}{Optionally force a specific test. Choices:
-\itemize{
-\item \code{"auto"} \emph{(default)} — automatically selects appropriate tests
-\item \code{"chisq"}, \code{"fisher"} for categorical variables
-\item \code{"t.test"}, \code{"wilcox"} for 2-group continuous comparisons
-\item \code{"anova"}, \code{"kruskal"} for >2-group continuous comparisons
-}}
+\item{test_type}{Character string specifying the statistical test for group comparisons:
+\code{"auto"} (default, chooses test based on data), \code{"t.test"}, \code{"wilcox"}, \code{"anova"},
+\code{"kruskal"}, \code{"chisq"}, or \code{"fisher"}.}
+
+\item{paired}{Logical. If TRUE and only two groups exist, performs a paired t-test for continuous variables. Default is FALSE.}
 }
 \value{
-A \code{flextable} object containing the summary table with p-values and
-footer notes describing summary statistics and tests used.
+A \code{flextable} object displaying a publication-ready summary table including:
+\itemize{
+\item Counts and percentages for categorical variables
+\item Mean (SD) or median (IQR) for continuous variables
+\item P-values for group comparisons
+\item Footnotes describing which summary statistics and tests were used
+}
 }
 \description{
-\code{sum_stat_p()} generates a descriptive summary table for both categorical and
-continuous variables stratified by a grouping variable. It automatically
-computes appropriate statistical tests (Chi-square, Fisher's exact, t-test,
-Wilcoxon, ANOVA, or Kruskal–Wallis) based on data type and distribution
-characteristics. The output is formatted as a \code{flextable} with footnotes
-indicating the summary statistics used and the tests applied.
+\code{sum_stat_p} generates a descriptive summary table for both continuous and categorical variables,
+stratified by a grouping variable. It automatically computes appropriate statistical tests
+(Chi-square, Fisher's exact, t-test, Wilcoxon, ANOVA, or Kruskal–Wallis) based on variable type,
+number of groups, and data distribution. Continuous variables can be summarized as mean (SD) or median (IQR),
+and categorical variables as counts and percentages.
+}
+\details{
+The output is formatted as a \code{flextable} with footnotes indicating which summary statistics
+were used and which statistical tests were applied.
 }
 \examples{
-# Load built-in dataset
-data(CO2)
+# Summary of iris dataset by species
+sum_stat_p(iris, by = "Species", statistic = "mean_sd", test_type = "auto")
 
-# Example 1: Auto test selection, median/IQR summary
-sum_stat_p(CO2, by = "Type", statistic = "med_iqr")
+# Summary of CO2 dataset by Type with paired t-test
+sum_stat_p(CO2, by = "Type", statistic = "mean_sd", test_type = "t.test", paired = TRUE)
 
-# Example 2: Force Wilcoxon test for continuous variables
-sum_stat_p(CO2, by = "Type", statistic = "med_iqr", test_type = "wilcox")
-
-# Example 3: Mean/SD with automatic test choice
-sum_stat_p(CO2, by = "Treatment", statistic = "mean_sd")
+# Summary using median and IQR
+sum_stat_p(iris, by = "Species", statistic = "med_iqr", test_type = "kruskal")
 }

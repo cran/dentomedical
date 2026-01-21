@@ -1,57 +1,45 @@
-#' Create a Summary Table With P-Values for Group Comparisons
+#' Summarize Continuous and Categorical Variables with Grouping and P-Values
 #'
-#' `sum_stat_p()` generates a descriptive summary table for both categorical and
-#' continuous variables stratified by a grouping variable. It automatically
-#' computes appropriate statistical tests (Chi-square, Fisher's exact, t-test,
-#' Wilcoxon, ANOVA, or Kruskal–Wallis) based on data type and distribution
-#' characteristics. The output is formatted as a `flextable` with footnotes
-#' indicating the summary statistics used and the tests applied.
+#' `sum_stat_p` generates a descriptive summary table for both continuous and categorical variables,
+#' stratified by a grouping variable. It automatically computes appropriate statistical tests
+#' (Chi-square, Fisher's exact, t-test, Wilcoxon, ANOVA, or Kruskal–Wallis) based on variable type,
+#' number of groups, and data distribution. Continuous variables can be summarized as mean (SD) or median (IQR),
+#' and categorical variables as counts and percentages.
 #'
-#' @param data A data frame or tibble containing variables to summarise.
-#' @param by A string specifying the grouping variable name. Must be a column in `data`.
-#' @param statistic A string specifying summary style for continuous variables:
-#'   - `"mean_sd"`: Mean (SD)
-#'   - `"med_iqr"`: Median (IQR)
-#' @param test_type Optionally force a specific test. Choices:
-#'   - `"auto"` *(default)* — automatically selects appropriate tests
-#'   - `"chisq"`, `"fisher"` for categorical variables
-#'   - `"t.test"`, `"wilcox"` for 2-group continuous comparisons
-#'   - `"anova"`, `"kruskal"` for >2-group continuous comparisons
-#' @importFrom stats aov as.formula binomial chisq.test fisher.test kruskal.test lm sd shapiro.test t.test wilcox.test
-#' @return A `flextable` object containing the summary table with p-values and
-#' footer notes describing summary statistics and tests used.
+#' The output is formatted as a `flextable` with footnotes indicating which summary statistics
+#' were used and which statistical tests were applied.
+#'
+#' @param data A `data.frame` or `tibble` containing the variables to summarize.
+#' @param by A string specifying the grouping variable for stratified summaries.
+#' @param statistic Character string indicating how to summarize continuous variables:
+#'   `"mean_sd"` (default) or `"med_iqr"`.
+#' @param test_type Character string specifying the statistical test for group comparisons:
+#'   `"auto"` (default, chooses test based on data), `"t.test"`, `"wilcox"`, `"anova"`,
+#'   `"kruskal"`, `"chisq"`, or `"fisher"`.
+#' @param paired Logical. If TRUE and only two groups exist, performs a paired t-test for continuous variables. Default is FALSE.
+#' @importFrom tibble as_tibble
+#' @importFrom stats t.test wilcox.test aov kruskal.test chisq.test fisher.test
+#' @importFrom flextable flextable set_header_labels autofit bold add_footer_lines
+#' @import tidyr
+#'
+#' @return A `flextable` object displaying a publication-ready summary table including:
+#' - Counts and percentages for categorical variables
+#' - Mean (SD) or median (IQR) for continuous variables
+#' - P-values for group comparisons
+#' - Footnotes describing which summary statistics and tests were used
 #'
 #' @export
 #'
 #' @examples
-#' # Load built-in dataset
-#' data(CO2)
+#' # Summary of iris dataset by species
+#' sum_stat_p(iris, by = "Species", statistic = "mean_sd", test_type = "auto")
 #'
-#' # Example 1: Auto test selection, median/IQR summary
-#' sum_stat_p(CO2, by = "Type", statistic = "med_iqr")
+#' # Summary of CO2 dataset by Type with paired t-test
+#' sum_stat_p(CO2, by = "Type", statistic = "mean_sd", test_type = "t.test", paired = TRUE)
 #'
-#' # Example 2: Force Wilcoxon test for continuous variables
-#' sum_stat_p(CO2, by = "Type", statistic = "med_iqr", test_type = "wilcox")
-#'
-#' # Example 3: Mean/SD with automatic test choice
-#' sum_stat_p(CO2, by = "Treatment", statistic = "mean_sd")
-#' @name sum_stat_p
-utils::globalVariables(c(
-  # dplyr/tidyr variables
-  ".", "n", "pct", "val", "label",
-  "Variable", "Characteristic",
-
-  # auto-created columns
-  "p-value",
-
-  # tidyr pivoting variables
-  "row_number",
-
-  # symbols used with sym()
-  # (CRAN warns even when using !!sym())
-  "Type", "Treatment"
-))
-sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
+#' # Summary using median and IQR
+#' sum_stat_p(iris, by = "Species", statistic = "med_iqr", test_type = "kruskal")
+sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto", paired = FALSE) {
   data <- as_tibble(data)
   is_cat <- function(x) is.factor(x) || is.character(x)
 
@@ -78,7 +66,10 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
       } else {
         g <- unique(data[[by]])
         if (length(g) == 2) {
-          if (test_type == "wilcox") {
+          if (paired) {
+            pval <- t.test(var ~ data[[by]], paired = TRUE)$p.value
+            test_used <- "Paired t-test"
+          } else if (test_type == "wilcox") {
             pval <- wilcox.test(var ~ data[[by]])$p.value
             test_used <- "Wilcoxon Rank-Sum"
           } else if (test_type == "t.test" || test_type == "auto") {
@@ -106,7 +97,7 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
         summarise(n = n(), .groups = "drop") %>%
         complete(!!sym(colname), !!sym(by), fill = list(n = 0)) %>%
         group_by(!!sym(by)) %>%
-        mutate(pct = round(n / sum(n) * 100)) %>%
+        mutate(pct = round(n / sum(n) * 100, 2)) %>%  # <-- 2 decimals
         ungroup() %>%
         mutate(
           Variable = colname,
@@ -115,7 +106,7 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
         ) %>%
         select(Variable, Characteristic, !!sym(by), label) %>%
         pivot_wider(names_from = !!sym(by), values_from = label) %>%
-        mutate(`p-value` = if_else(row_number() == 1, format.pval(pval, digits = 3, eps = 0.001), ""))
+        mutate(`p-value` = if_else(row_number() == 1, sprintf("%.2f", pval), ""))
 
     } else {
       tbl <- data %>%
@@ -143,7 +134,7 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
         pivot_wider(names_from = !!sym(by), values_from = val) %>%
         mutate(
           Characteristic = if_else(statistic == "mean_sd", "Mean (SD)", "Median (IQR)"),
-          `p-value` = format.pval(pval, digits = 3, eps = 0.001)
+          `p-value` = sprintf("%.2f", pval)  # <-- 2 decimals
         ) %>%
         select(Variable, Characteristic, everything())
     }
@@ -168,7 +159,7 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
   flextable(summary_df) %>%
     set_header_labels(
       Variable = "Variable",
-      Characteristic = "Characteristic",
+      Characteristic = "Statistics",
       `p-value` = "p-value"
     ) %>%
     autofit() %>%
@@ -176,12 +167,5 @@ sum_stat_p <- function(data, by, statistic = "mean_sd", test_type = "auto") {
     add_footer_lines(stat_text) %>%
     add_footer_lines(test_text)
 }
-
-
-# # Auto test selection with footnotes showing test
-# sum_stat_p(CO2, by = "Type", statistic = "med_iqr")
-#
-# # Force Fisher and Wilcoxon
-# sum_stat_p(CO2, by = "Type", statistic = "med_iqr", test_type = "wilcox")
 
 
